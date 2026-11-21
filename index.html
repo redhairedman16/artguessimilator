@@ -41,6 +41,7 @@ button.on{background:var(--ink);color:var(--screen)}
 #ov[hidden]{display:none}
 #guess{display:none}.play #guess{display:block}.play .edit,.play h2,.play #gal{display:none}#guess .row span{color:var(--hi)}
 [hidden]{display:none!important}.hd{color:var(--hi);margin:12px 0 0}.mp .solo,.mp #save,.mp #exp,.mp h2,.mp #gal{display:none}.guessing .edit{display:none}#feed{white-space:pre-line;color:var(--dim);min-height:6em;margin:6px 0}#plist,#mhud{margin:6px 0;word-break:break-word}#mhud{color:var(--hi)}#jcode,#pname{flex:none;min-width:0;width:150px}
+select{font:inherit;background:var(--screen);color:var(--ink);border:2px solid var(--ink);padding:6px}input[type=range]{accent-color:var(--hi);width:110px}button.k{padding:2px 6px;font-size:9px;border-color:#C07060;color:#C07060;margin-right:6px}#hset span{color:var(--hi)}
 #ov img{max-width:100%;max-height:60vh;image-rendering:pixelated;border:3px solid var(--ink)}
 </style>
 </head>
@@ -50,7 +51,8 @@ button.on{background:var(--ink);color:var(--screen)}
 <p class="dim">COMMODORE 64 DRAWING SYSTEM &nbsp; 16 COLORS &nbsp; 320x200</p>
 <p>READY.<span class="cur"></span></p>
 <div id="lobby"><p class="hd">MULTIPLAYER</p><div class="row"><input type="text" id="pname" maxlength="12" autocomplete="off" spellcheck="false" placeholder="YOUR NAME"><button id="host">Host game</button></div><div class="row"><input type="text" id="jcode" maxlength="5" autocomplete="off" spellcheck="false" placeholder="CODE"><button id="join">Join game</button></div></div>
-<div id="room" hidden><div class="row"><span id="rinfo"></span><button id="start" hidden>Start</button><button id="leave">Leave</button></div><div id="plist"></div><div id="mhud"></div><div class="row" id="mg" hidden><input type="text" id="mgin" maxlength="40" autocomplete="off" spellcheck="false" placeholder="TYPE YOUR GUESS"><button id="mgbtn">Guess</button></div><div id="feed"></div></div>
+<div id="room" hidden><div class="row"><span id="rinfo"></span><button id="start" hidden>Start</button><button id="leave">Leave</button></div>
+<div class="row" id="hset" hidden><span>MAX</span><input type="range" id="smax" min="2" max="8" value="6"><span id="vmax">6</span><span>TIME</span><select id="stime"><option value="30">30s</option><option value="45">45s</option><option value="60">60s</option><option value="75" selected>75s</option><option value="90">90s</option><option value="120">120s</option></select><span>ROUNDS</span><button id="rm">-</button><span id="vr">6</span><button id="rp">+</button></div><div id="plist"></div><div id="mhud"></div><div class="row" id="mg" hidden><input type="text" id="mgin" maxlength="40" autocomplete="off" spellcheck="false" placeholder="TYPE YOUR GUESS"><button id="mgbtn">Guess</button></div><div id="feed"></div></div>
 
 <div class="row edit solo"><label for="ttl">TITLE:</label><input type="text" id="ttl" maxlength="40" autocomplete="off" spellcheck="false" placeholder="TYPE A TITLE"><label class="chk"><input type="checkbox" id="bar"> BAR</label><button id="play">Play</button></div>
 <div class="row edit solo"><span>TITLE COLOR</span><div id="tpal" class="pal small"></div></div>
@@ -222,8 +224,8 @@ $('#gexit').onclick=()=>{playing=false;stopTimer();$('#tm').textContent='';hints
 
 /* ---------- MULTIPLAYER (PeerJS, host is the referee) ---------- */
 const WORDS='CAT,DOG,HOUSE,TREE,SUN,MOON,STAR,CAR,BOAT,FISH,BIRD,FLOWER,PIZZA,APPLE,BANANA,ROBOT,GHOST,CASTLE,DRAGON,ROCKET,PLANET,GUITAR,PIANO,CLOCK,KEY,CROWN,HEART,SNOWMAN,UMBRELLA,BRIDGE,MOUNTAIN,RAINBOW,SPIDER,BUTTERFLY,TRAIN,PLANE,BIKE,HAT,SHOE,CUP,BOOK,PHONE,LAMP,CAKE,ICE CREAM,SWORD,SHIELD,PIRATE,WIZARD,ALIEN,JOYSTICK,FLOPPY DISK,COMPUTER,TURTLE,SNAKE,PENGUIN,SHARK,WHALE,BURGER'.split(',');
-const RT=75,blank=()=>({players:[],phase:'lobby',drawer:'',mask:'',tleft:0,round:0,total:0,g:[]});
-let net=null,myId='',room=blank(),word='',guessed=new Set(),rev=new Set(),mt=null,lastC='',feed=[],st=0,sp=false;
+const blank=()=>({players:[],phase:'lobby',drawer:'',mask:'',tleft:0,round:0,total:0,g:[],max:6,time:75,rounds:6});
+let net=null,pk='',myId='',room=blank(),word='',guessed=new Set(),rev=new Set(),mt=null,lastC='',feed=[],st=0,sp=false;
 const canDraw=()=>!net||(room.phase==='play'&&room.drawer===myId);
 const nm=id=>(room.players.find(p=>p.id===id)||{name:'?'}).name;
 const add=(id,n)=>{const p=room.players.find(p=>p.id===id);if(p)p.score+=n};
@@ -244,9 +246,15 @@ function ui(){
   S.classList.toggle('mp',!!net);S.classList.toggle('guessing',!!net&&!mine);
   $('#lobby').hidden=!!net;$('#room').hidden=!net;if(!net)return;
   $('#rinfo').textContent='ROOM CODE: '+net.code;
-  $('#plist').textContent=r.players.map(p=>(p.id===r.drawer&&r.phase==='play'?'*':'')+p.name+':'+p.score).join('  ');
+  const key=JSON.stringify([r.players,r.phase,r.drawer,net.host]);
+  if(key!==pk){pk=key;const pl=$('#plist');pl.textContent='';
+    r.players.forEach(p=>{const sp=document.createElement('span');sp.textContent=(p.id===r.drawer&&r.phase==='play'?'*':'')+p.name+':'+p.score+' ';pl.appendChild(sp);
+      if(net.host&&p.id!=='H'){const b=document.createElement('button');b.textContent='Kick';b.className='k';b.onclick=()=>kick(p.id);pl.appendChild(b)}
+      pl.appendChild(document.createTextNode(' '))})}
+  $('#hset').hidden=!(net.host&&(r.phase==='lobby'||r.phase==='over'));
+  $('#smax').value=r.max;$('#vmax').textContent=r.max;$('#stime').value=r.time;$('#vr').textContent=r.rounds;
   let h='';
-  if(r.phase==='lobby')h=net.host?'SHARE THE CODE, THEN PRESS START':'WAITING FOR HOST TO START';
+  if(r.phase==='lobby')h=(net.host?'SHARE THE CODE, THEN PRESS START':'WAITING FOR HOST TO START')+'   MAX:'+r.max+' TIME:'+r.time+'S ROUNDS:'+r.rounds;
   else if(r.phase==='play')h=(mine?'DRAW: '+word:'GUESS: '+r.mask)+'   TIME:'+r.tleft+'   ROUND '+r.round+'/'+r.total;
   else if(r.phase==='reveal')h='THE WORD WAS '+r.mask;
   else{const w=[...r.players].sort((a,b)=>b.score-a.score)[0];h='GAME OVER! WINNER: '+(w?w.name:'-')}
@@ -259,11 +267,11 @@ function nextRound(){
   if(room.round>=room.total||room.players.length<2){room.phase='over';room.mask='';push();const w=[...room.players].sort((a,b)=>b.score-a.score)[0];say('GAME OVER! WINNER: '+(w?w.name:'-'));return}
   room.round++;room.drawer=room.players[(room.round-1)%room.players.length].id;
   word=WORDS[Math.floor(Math.random()*WORDS.length)];rev=new Set();guessed=new Set();lastC='';
-  room.phase='play';room.tleft=RT;room.mask=mk();
+  room.phase='play';room.tleft=room.time;room.mask=mk();
   fillAll(6);undo=[];render();
   if(room.drawer!=='H'&&net.conns[room.drawer])net.conns[room.drawer].send({t:'w',w:word});
   clearInterval(mt);
-  const n=norm(word).length,hn=Math.max(1,Math.floor(n/5)),at=[...Array(hn)].map((_,k)=>Math.round(RT*(1-(k+1)/(hn+1))));
+  const n=norm(word).length,hn=Math.max(1,Math.floor(n/5)),at=[...Array(hn)].map((_,k)=>Math.round(room.time*(1-(k+1)/(hn+1))));
   mt=setInterval(()=>{
     room.tleft--;
     if(at.includes(room.tleft)){const c=[...word].map((ch,i)=>i).filter(i=>/[A-Z0-9]/.test(word[i])&&!rev.has(i));if(c.length>1)rev.add(c[Math.floor(Math.random()*c.length)]);room.mask=mk()}
@@ -283,16 +291,16 @@ function onGuess(id,text){
     if(guessed.size>=room.players.length-1)endRound();else push();
   }else say(nm(id)+': '+text.toUpperCase());
 }
-function drop(id){
+function drop(id,why){
   if(!net)return;delete net.conns[id];
   const p=room.players.find(q=>q.id===id);if(!p)return;
-  room.players=room.players.filter(q=>q.id!==id);say(p.name+' LEFT');
+  room.players=room.players.filter(q=>q.id!==id);say(p.name+(why||' LEFT'));
   if(room.phase==='play'&&(room.drawer===id||room.players.length<2||guessed.size>=room.players.length-1))endRound();else push();
 }
 function onHostData(c,m){
   if(!m||typeof m!=='object')return;
   if(m.t==='h'){
-    if(room.players.length>=6){c.send({t:'x',x:'ROOM FULL'});setTimeout(()=>c.close(),300);return}
+    if(room.players.length>=room.max){c.send({t:'x',x:'ROOM FULL'});setTimeout(()=>c.close(),300);return}
     net.conns[c.peer]=c;room.players.push({id:c.peer,name:String(m.n||'PLAYER').slice(0,12).toUpperCase(),score:0});
     say(nm(c.peer)+' JOINED');push();
     if(room.phase==='play'){const d=room.drawer==='H'?art.toDataURL():lastC;if(d)c.send({t:'c',d})}
@@ -333,11 +341,15 @@ function joinRoom(){
 }
 function leave(t){
   clearInterval(mt);if(net){try{net.peer.destroy()}catch(e){}}
-  net=null;myId='';word='';guessed=new Set();room=blank();
+  net=null;pk='';myId='';word='';guessed=new Set();room=blank();
   $('.screen').classList.remove('mp','guessing');$('#lobby').hidden=false;$('#room').hidden=true;msg(t||'');
 }
 $('#host').onclick=hostRoom;$('#join').onclick=joinRoom;$('#leave').onclick=()=>leave('');
-$('#start').onclick=()=>{room.players.forEach(p=>p.score=0);room.round=0;room.total=room.players.length*2;nextRound()};
+$('#start').onclick=()=>{room.players.forEach(p=>p.score=0);room.round=0;room.total=room.rounds;nextRound()};
+function kick(id){const c=net&&net.conns[id];if(!c)return;try{c.send({t:'x',x:'KICKED BY HOST'})}catch(e){}setTimeout(()=>c.close(),300);drop(id,' WAS KICKED')}
+function cfgSet(k,v){if(!net||!net.host)return;if(k==='max')v=Math.max(2,Math.min(8,Math.max(v,room.players.length)));if(k==='rounds')v=Math.max(1,Math.min(30,v));room[k]=v;push()}
+$('#smax').oninput=e=>cfgSet('max',+e.target.value);$('#stime').onchange=e=>cfgSet('time',+e.target.value);
+$('#rm').onclick=()=>cfgSet('rounds',room.rounds-1);$('#rp').onclick=()=>cfgSet('rounds',room.rounds+1);
 function sendG(){const t=$('#mgin').value.trim();$('#mgin').value='';if(!t||!net)return;if(net.host)onGuess('H',t);else if(net.hc&&net.hc.open)net.hc.send({t:'g',x:t})}
 $('#mgbtn').onclick=sendG;$('#mgin').addEventListener('keydown',e=>{if(e.key==='Enter')sendG()});
 
