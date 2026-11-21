@@ -1,0 +1,223 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Pixel Art Guesser</title>
+<link href="https://fonts.googleapis.com/css2?family=Press+Start+2P&display=swap" rel="stylesheet">
+<style>
+:root{--border:#6C5EB5;--screen:#352879;--ink:#A79CF0;--hi:#B8C76F;--dim:#6C5EB5;color-scheme:dark;box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px);background:var(--border)}
+html{scroll-padding-top:env(safe-area-inset-top,0px)}
+*,*::before,*::after{box-sizing:inherit}
+body{margin:0;background:var(--border);font-family:"Press Start 2P","Courier New",monospace;font-size:10px;line-height:1.6;color:var(--ink)}
+.frame{padding:min(4vw,26px)}
+.screen{background:var(--screen);max-width:1000px;margin:0 auto;padding:14px}
+h1{font-size:clamp(10px,2.6vw,16px);margin:0 0 6px;color:var(--hi);font-weight:400}
+h2{font-size:10px;font-weight:400;margin:18px 0 8px;color:var(--hi)}
+p{margin:0 0 4px}.dim{color:var(--dim)}
+.cur{display:inline-block;width:.9em;height:1.1em;background:var(--ink);vertical-align:-2px;margin-left:4px;animation:bl 1s steps(1) infinite}
+@keyframes bl{50%{opacity:0}}
+.row{display:flex;flex-wrap:wrap;align-items:center;gap:8px;margin:10px 0}
+input[type=text]{flex:1;min-width:150px;background:var(--screen);color:var(--hi);border:2px solid var(--ink);font:inherit;padding:6px 8px;text-transform:uppercase;outline:none}
+input[type=text]:focus{background:#2a1f66}
+label.chk{display:flex;gap:6px;align-items:center;cursor:pointer}
+canvas#view{display:block;width:100%;max-width:960px;aspect-ratio:8/5;image-rendering:pixelated;border:3px solid var(--ink);touch-action:none;cursor:crosshair;margin:10px auto 0;background:#352879}
+button{font:inherit;color:var(--ink);background:transparent;border:2px solid var(--ink);padding:6px 8px;cursor:pointer;text-transform:uppercase}
+button:hover{color:var(--hi);border-color:var(--hi)}
+button.on{background:var(--ink);color:var(--screen)}
+.pal{display:grid;grid-template-columns:repeat(8,1fr);gap:5px;flex:1;max-width:460px}
+.pal.small{grid-template-columns:repeat(16,1fr);gap:3px;max-width:460px}
+.sw{height:26px;padding:0;border:2px solid #000}
+.small .sw{height:16px;border-width:1px}
+.sw.sel{outline:3px solid #fff;outline-offset:1px}
+.stat{justify-content:space-between;color:var(--dim)}
+#gal{display:grid;grid-template-columns:repeat(auto-fill,minmax(180px,1fr));gap:10px}
+.card{border:2px solid var(--ink);padding:6px}
+.card img{width:100%;aspect-ratio:8/5;image-rendering:pixelated;display:block;margin-bottom:6px}
+.card .t{white-space:nowrap;overflow:hidden;text-overflow:ellipsis;margin-bottom:6px;color:var(--hi)}
+.card button{padding:4px 6px;font-size:9px;margin-right:4px}
+#ov{position:fixed;inset:0;background:rgba(20,10,60,.92);display:flex;flex-direction:column;align-items:center;justify-content:center;gap:12px;padding:16px;z-index:5;text-align:center}
+#ov[hidden]{display:none}
+#guess{display:none}.play #guess{display:block}.play .edit,.play h2,.play #gal{display:none}#guess .row span{color:var(--hi)}
+#ov img{max-width:100%;max-height:60vh;image-rendering:pixelated;border:3px solid var(--ink)}
+</style>
+</head>
+<body>
+<div class="frame"><main class="screen">
+<h1>**** PIXEL ART GUESSER ****</h1>
+<p class="dim">COMMODORE 64 DRAWING SYSTEM &nbsp; 16 COLORS &nbsp; 320x200</p>
+<p>READY.<span class="cur"></span></p>
+
+<div class="row edit"><label for="ttl">TITLE:</label><input type="text" id="ttl" maxlength="40" autocomplete="off" spellcheck="false" placeholder="TYPE A TITLE"><label class="chk"><input type="checkbox" id="bar"> BAR</label><button id="play">Play</button></div>
+<div class="row edit"><span>TITLE COLOR</span><div id="tpal" class="pal small"></div></div>
+
+<canvas id="view" width="320" height="200"></canvas>
+<div class="row stat"><span id="xy">X:--- Y:---</span><span id="msg"></span></div>
+<div id="guess"><div class="row"><span id="hint">GUESS THE DRAWING!</span><span id="tm"></span></div><div class="row"><input type="text" id="gin" maxlength="40" autocomplete="off" spellcheck="false" placeholder="YOUR GUESS"><button id="gbtn">Guess</button><button id="hbtn">Hint</button><button id="giveup">Give up</button><button id="gexit" hidden>Exit</button></div></div>
+
+<div class="row edit"><span>COLOR</span><div id="pal" class="pal"></div></div>
+<div class="row edit" id="tools">
+<button data-tool="pencil" class="on">Pencil</button><button data-tool="line">Line</button><button data-tool="box">Box</button><button data-tool="fbox">Solid</button><button data-tool="fill">Fill</button><button data-tool="erase">Erase</button>
+</div>
+<div class="row edit" id="sizes"><span>BRUSH</span><button data-size="1" class="on">1</button><button data-size="2">2</button><button data-size="4">4</button><button data-size="8">8</button></div>
+<div class="row edit" id="opt"><span>PLAYERS</span><button data-pl="1" class="on">1</button><button data-pl="2">2</button><span>TIMER</span><button data-tm="0">Off</button><button data-tm="30">30</button><button data-tm="60" class="on">60</button><button data-tm="90">90</button></div>
+<div class="row edit"><button id="undo">Undo</button><button id="new">New</button><button id="save">Save</button><button id="exp">Export PNG</button></div>
+
+<h2>SAVED DRAWINGS</h2>
+<div id="gal"></div>
+</main></div>
+
+<div id="ov" hidden><p>RIGHT-CLICK OR LONG-PRESS THE IMAGE TO SAVE IT</p><img id="oimg" alt="Exported drawing"><button id="oc">Close</button></div>
+
+<script>
+(()=>{
+const W=320,H=200,KEY='pag:v1';
+const PAL=['#000000','#FFFFFF','#68372B','#70A4B2','#6F3D86','#588D43','#352879','#B8C76F','#6F4F25','#433900','#9A6759','#444444','#6C6C6C','#9AD284','#6C5EB5','#959595'];
+const $=s=>document.querySelector(s);
+const view=$('#view'),vctx=view.getContext('2d');
+const art=document.createElement('canvas');art.width=W;art.height=H;
+const actx=art.getContext('2d',{willReadFrequently:true});
+const tmp=document.createElement('canvas');tmp.width=W;tmp.height=12;
+const tctx=tmp.getContext('2d',{willReadFrequently:true});
+let playing=false,revealed=false,tries=0,scores=[0,0],turn=0,first=1,players=1,tsec=60,tleft=0,tid=null,hints=new Set(),hleft=0,color=1,tcolor=1,tool='pencil',size=1,bg=6,title='',bar=false,cur=null,undo=[],drawing=false,start,last,snap;
+const rgb=h=>[1,3,5].map(i=>parseInt(h.substr(i,2),16));
+
+function fillAll(c){bg=c;actx.fillStyle=PAL[c];actx.fillRect(0,0,W,H)}
+function render(){
+  vctx.drawImage(art,0,0);
+  if(bar){vctx.fillStyle=tcolor===0?PAL[1]:PAL[0];vctx.fillRect(0,0,W,12)}
+  const shown=(playing&&!revealed)?[...title].map((ch,i)=>ch===' '||hints.has(i)?ch:'?').join(''):title;if(shown){
+    tctx.clearRect(0,0,W,12);
+    tctx.font='8px "Press Start 2P","Courier New",monospace';
+    tctx.textBaseline='top';tctx.textAlign='center';tctx.fillStyle='#000';
+    tctx.fillText(shown,W/2,2);
+    const d=tctx.getImageData(0,0,W,12),p=d.data,c=rgb(PAL[tcolor]);
+    for(let i=0;i<p.length;i+=4){if(p[i+3]>110){p[i]=c[0];p[i+1]=c[1];p[i+2]=c[2];p[i+3]=255}else p[i+3]=0}
+    tctx.putImageData(d,0,0);vctx.drawImage(tmp,0,0);
+  }
+}
+function msg(t){$('#msg').textContent=t}
+
+function buildPal(el,pick){
+  PAL.forEach((c,i)=>{const b=document.createElement('button');b.className='sw';b.style.background=c;b.title='COLOR '+i;b.setAttribute('aria-label','Color '+i);b.onclick=()=>{pick(i);mark()};el.appendChild(b)});
+}
+function mark(){
+  document.querySelectorAll('#pal .sw').forEach((b,i)=>b.classList.toggle('sel',i===color));
+  document.querySelectorAll('#tpal .sw').forEach((b,i)=>b.classList.toggle('sel',i===tcolor));
+}
+buildPal($('#pal'),i=>{color=i});
+buildPal($('#tpal'),i=>{tcolor=i;render()});
+
+$('#tools').onclick=e=>{const b=e.target.closest('button');if(!b)return;tool=b.dataset.tool;[...$('#tools').children].forEach(x=>x.classList.toggle('on',x===b))};
+$('#sizes').onclick=e=>{const b=e.target.closest('button');if(!b)return;size=+b.dataset.size;[...$('#sizes').querySelectorAll('button')].forEach(x=>x.classList.toggle('on',x===b))};
+$('#ttl').oninput=e=>{title=e.target.value.toUpperCase().slice(0,40);render()};
+$('#bar').onchange=e=>{bar=e.target.checked;render()};
+
+function pos(e){const r=view.getBoundingClientRect();return[Math.max(0,Math.min(W-1,Math.floor((e.clientX-r.left)*W/r.width))),Math.max(0,Math.min(H-1,Math.floor((e.clientY-r.top)*H/r.height)))]}
+function stamp(x,y){actx.fillStyle=tool==='erase'?PAL[bg]:PAL[color];const o=size>>1;actx.fillRect(x-o,y-o,size,size)}
+function line(a,b,c,d,fn){let dx=Math.abs(c-a),dy=-Math.abs(d-b),sx=a<c?1:-1,sy=b<d?1:-1,er=dx+dy;for(;;){fn(a,b);if(a===c&&b===d)break;const e2=2*er;if(e2>=dy){er+=dy;a+=sx}if(e2<=dx){er+=dx;b+=sy}}}
+function shape(a,b){
+  actx.putImageData(snap,0,0);
+  if(tool==='line'){line(a[0],a[1],b[0],b[1],stamp);return}
+  const x0=Math.min(a[0],b[0]),x1=Math.max(a[0],b[0]),y0=Math.min(a[1],b[1]),y1=Math.max(a[1],b[1]);
+  if(tool==='fbox'){actx.fillStyle=PAL[color];actx.fillRect(x0,y0,x1-x0+1,y1-y0+1)}
+  else{line(x0,y0,x1,y0,stamp);line(x0,y1,x1,y1,stamp);line(x0,y0,x0,y1,stamp);line(x1,y0,x1,y1,stamp)}
+}
+function flood(x,y){
+  const id=actx.getImageData(0,0,W,H),d=new Uint32Array(id.data.buffer),t=d[y*W+x],c=rgb(PAL[color]);
+  const f=((255<<24)|(c[2]<<16)|(c[1]<<8)|c[0])>>>0;
+  if(t===f)return;
+  const st=[y*W+x];
+  while(st.length){const i=st.pop();if(d[i]!==t)continue;d[i]=f;const px=i%W;if(px>0)st.push(i-1);if(px<W-1)st.push(i+1);if(i>=W)st.push(i-W);if(i<W*H-W)st.push(i+W)}
+  actx.putImageData(id,0,0);
+}
+function pushUndo(){undo.push(actx.getImageData(0,0,W,H));if(undo.length>40)undo.shift()}
+
+view.addEventListener('pointerdown',e=>{
+  if(playing)return;e.preventDefault();view.setPointerCapture(e.pointerId);
+  const p=pos(e);pushUndo();snap=undo[undo.length-1];start=last=p;
+  if(tool==='fill'){flood(p[0],p[1]);render();return}
+  drawing=true;
+  if(tool==='pencil'||tool==='erase')stamp(p[0],p[1]);else shape(p,p);
+  render();
+});
+view.addEventListener('pointermove',e=>{
+  const p=pos(e);$('#xy').textContent='X:'+String(p[0]).padStart(3,'0')+' Y:'+String(p[1]).padStart(3,'0');
+  if(!drawing)return;
+  if(tool==='pencil'||tool==='erase'){line(last[0],last[1],p[0],p[1],stamp);last=p}
+  else shape(start,p);
+  render();
+});
+const end=()=>{drawing=false};
+view.addEventListener('pointerup',end);view.addEventListener('pointercancel',end);
+
+$('#undo').onclick=doUndo;
+function doUndo(){if(playing)return;if(!undo.length){msg('NOTHING TO UNDO');return}actx.putImageData(undo.pop(),0,0);render()}
+document.addEventListener('keydown',e=>{if((e.ctrlKey||e.metaKey)&&e.key==='z'&&document.activeElement.id!=='ttl'){e.preventDefault();doUndo()}});
+$('#new').onclick=()=>{pushUndo();fillAll(color);cur=null;title='';$('#ttl').value='';bar=false;$('#bar').checked=false;render();msg('NEW CANVAS')};
+
+function load(){try{return JSON.parse(localStorage.getItem(KEY)||'[]')}catch(e){return[]}}
+function store(a){try{localStorage.setItem(KEY,JSON.stringify(a));return true}catch(e){return false}}
+$('#save').onclick=()=>{
+  const all=load(),item={id:cur||String(Date.now()),title,tcolor,bar,bg,data:art.toDataURL('image/png'),ts:Date.now()};
+  const i=all.findIndex(x=>x.id===item.id);
+  if(i>=0)all[i]=item;else all.unshift(item);
+  cur=item.id;
+  if(store(all)){msg('SAVED \u201C'+(title||'UNTITLED')+'\u201D');gallery()}else msg('?SAVE ERROR')
+};
+function gallery(){
+  const g=$('#gal'),all=load();g.textContent='';
+  if(!all.length){g.textContent='NO SAVED DRAWINGS YET.';return}
+  all.forEach(it=>{
+    const c=document.createElement('div');c.className='card';
+    const im=document.createElement('img');im.src=it.data;im.alt=it.title||'Untitled';
+    const t=document.createElement('div');t.className='t';t.textContent=it.title||'UNTITLED';
+    const l=document.createElement('button');l.textContent='Load';l.onclick=()=>open(it);
+    const p=document.createElement('button');p.textContent='Play';p.onclick=()=>open(it,true);const d=document.createElement('button');d.textContent='Del';d.onclick=()=>{store(load().filter(x=>x.id!==it.id));if(cur===it.id)cur=null;gallery()};
+    c.append(im,t,l,p,d);g.appendChild(c);
+  });
+}
+function open(it,play){
+  const im=new Image();
+  im.onload=()=>{if(play)setTimeout(startPlay,0);pushUndo();actx.drawImage(im,0,0);bg=it.bg;cur=it.id;title=it.title||'';tcolor=it.tcolor;bar=!!it.bar;
+    $('#ttl').value=title;$('#bar').checked=bar;mark();render();msg('LOADED \u201C'+(title||'UNTITLED')+'\u201D')};
+  im.src=it.data;
+}
+$('#exp').onclick=()=>{
+  const o=document.createElement('canvas');o.width=W*3;o.height=H*3;
+  const c=o.getContext('2d');c.imageSmoothingEnabled=false;c.drawImage(view,0,0,W*3,H*3);
+  $('#oimg').src=o.toDataURL('image/png');$('#ov').hidden=false;
+};
+$('#oc').onclick=()=>{$('#ov').hidden=true};
+
+const norm=s=>s.toUpperCase().replace(/[^A-Z0-9]/g,'');
+const hintMax=()=>{const n=norm(title).length;return n>=2?Math.max(1,Math.floor(n/5)):0};
+function stopTimer(){clearInterval(tid);tid=null}
+function showTime(){$('#tm').textContent=tsec?'TIME:'+tleft:''}
+function startTimer(){stopTimer();tleft=tsec;showTime();if(!tsec)return;tid=setInterval(()=>{tleft--;showTime();if(tleft<=0)win('TIME UP! THE ANSWER WAS...')},1000)}
+const hint=t=>{$('#hint').textContent=t+'  '+(players===2?'P1:'+scores[0]+' P2:'+scores[1]+(revealed?'':'  P'+(turn+1)+' TURN'):'SCORE:'+scores[0]);$('#hbtn').textContent='Hint ('+hleft+')';$('#hbtn').disabled=revealed||hleft<=0};
+function startPlay(){
+  if(!title.trim()){msg('ADD A TITLE FIRST');return}
+  playing=true;revealed=false;tries=0;hints=new Set();hleft=hintMax();first^=1;turn=first;$('.screen').classList.add('play');startTimer();
+  $('#gin').value='';$('#gbtn').hidden=false;$('#giveup').hidden=false;$('#hbtn').hidden=false;$('#gexit').hidden=true;
+  hint('GUESS THE DRAWING!');msg(title.trim().split(/ +/).map(w=>w.length).join('+')+' LETTERS');render();$('#gin').focus();
+}
+function win(t){revealed=true;hint(t);$('#gbtn').hidden=true;$('#giveup').hidden=true;$('#hbtn').hidden=true;stopTimer();$('#gexit').hidden=false;render()}
+function guess(){
+  if(revealed)return;const g=$('#gin').value;if(!norm(g))return;
+  if(norm(g)===norm(title)){const who=players===2?turn:0,pts=Math.max(1,3-hints.size);scores[who]+=pts;msg('');win((players===2?'P'+(who+1)+' ':'')+'CORRECT! +'+pts)}
+  else{tries++;msg('WRONG, TRY AGAIN ('+tries+')');if(players===2)turn^=1;hint('GUESS THE DRAWING!');$('#gin').value='';$('#gin').focus()}
+}
+$('#play').onclick=startPlay;$('#gbtn').onclick=guess;
+$('#hbtn').onclick=()=>{if(revealed||hleft<=0)return;const c=[...title].map((ch,i)=>i).filter(i=>/[A-Z0-9]/.test(title[i])&&!hints.has(i));if(!c.length)return;hints.add(c[Math.floor(Math.random()*c.length)]);hleft--;hint('GUESS THE DRAWING!');msg('HINT USED');render();$('#gin').focus()};
+$('#opt').onclick=e=>{const b=e.target.closest('button');if(!b)return;const k=b.dataset.pl!==undefined?'pl':'tm';if(k==='pl')players=+b.dataset.pl;else tsec=+b.dataset.tm;[...$('#opt').querySelectorAll('[data-'+k+']')].forEach(x=>x.classList.toggle('on',x===b))};
+$('#gin').addEventListener('keydown',e=>{if(e.key==='Enter')guess()});
+$('#giveup').onclick=()=>{msg('');win('THE ANSWER WAS...')};
+$('#gexit').onclick=()=>{playing=false;stopTimer();$('#tm').textContent='';hints=new Set();$('.screen').classList.remove('play');msg('');render()};
+
+fillAll(6);mark();render();gallery();
+try{document.fonts.load('8px "Press Start 2P"').then(render)}catch(e){}
+})();
+</script>
+</body>
+</html>
