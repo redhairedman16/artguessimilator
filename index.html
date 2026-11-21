@@ -5,6 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <title>Pixel Art Guesser</title>
 <link href="https://fonts.googleapis.com/css2?family=Press+Start+2P&display=swap" rel="stylesheet">
+<script src="https://cdn.jsdelivr.net/npm/peerjs@1.5.4/dist/peerjs.min.js"></script>
 <style>
 :root{--border:#6C5EB5;--screen:#352879;--ink:#A79CF0;--hi:#B8C76F;--dim:#6C5EB5;color-scheme:dark;box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px);background:var(--border)}
 html{scroll-padding-top:env(safe-area-inset-top,0px)}
@@ -39,6 +40,7 @@ button.on{background:var(--ink);color:var(--screen)}
 #ov{position:fixed;inset:0;background:rgba(20,10,60,.92);display:flex;flex-direction:column;align-items:center;justify-content:center;gap:12px;padding:16px;z-index:5;text-align:center}
 #ov[hidden]{display:none}
 #guess{display:none}.play #guess{display:block}.play .edit,.play h2,.play #gal{display:none}#guess .row span{color:var(--hi)}
+[hidden]{display:none!important}.hd{color:var(--hi);margin:12px 0 0}.mp .solo,.mp #save,.mp #exp,.mp h2,.mp #gal{display:none}.guessing .edit{display:none}#feed{white-space:pre-line;color:var(--dim);min-height:6em;margin:6px 0}#plist,#mhud{margin:6px 0;word-break:break-word}#mhud{color:var(--hi)}#jcode,#pname{flex:none;min-width:0;width:150px}
 #ov img{max-width:100%;max-height:60vh;image-rendering:pixelated;border:3px solid var(--ink)}
 </style>
 </head>
@@ -47,9 +49,11 @@ button.on{background:var(--ink);color:var(--screen)}
 <h1>**** PIXEL ART GUESSER ****</h1>
 <p class="dim">COMMODORE 64 DRAWING SYSTEM &nbsp; 16 COLORS &nbsp; 320x200</p>
 <p>READY.<span class="cur"></span></p>
+<div id="lobby"><p class="hd">MULTIPLAYER</p><div class="row"><input type="text" id="pname" maxlength="12" autocomplete="off" spellcheck="false" placeholder="YOUR NAME"><button id="host">Host game</button></div><div class="row"><input type="text" id="jcode" maxlength="5" autocomplete="off" spellcheck="false" placeholder="CODE"><button id="join">Join game</button></div></div>
+<div id="room" hidden><div class="row"><span id="rinfo"></span><button id="start" hidden>Start</button><button id="leave">Leave</button></div><div id="plist"></div><div id="mhud"></div><div class="row" id="mg" hidden><input type="text" id="mgin" maxlength="40" autocomplete="off" spellcheck="false" placeholder="TYPE YOUR GUESS"><button id="mgbtn">Guess</button></div><div id="feed"></div></div>
 
-<div class="row edit"><label for="ttl">TITLE:</label><input type="text" id="ttl" maxlength="40" autocomplete="off" spellcheck="false" placeholder="TYPE A TITLE"><label class="chk"><input type="checkbox" id="bar"> BAR</label><button id="play">Play</button></div>
-<div class="row edit"><span>TITLE COLOR</span><div id="tpal" class="pal small"></div></div>
+<div class="row edit solo"><label for="ttl">TITLE:</label><input type="text" id="ttl" maxlength="40" autocomplete="off" spellcheck="false" placeholder="TYPE A TITLE"><label class="chk"><input type="checkbox" id="bar"> BAR</label><button id="play">Play</button></div>
+<div class="row edit solo"><span>TITLE COLOR</span><div id="tpal" class="pal small"></div></div>
 
 <canvas id="view" width="320" height="200"></canvas>
 <div class="row stat"><span id="xy">X:--- Y:---</span><span id="msg"></span></div>
@@ -60,7 +64,7 @@ button.on{background:var(--ink);color:var(--screen)}
 <button data-tool="pencil" class="on">Pencil</button><button data-tool="line">Line</button><button data-tool="box">Box</button><button data-tool="fbox">Solid</button><button data-tool="fill">Fill</button><button data-tool="erase">Erase</button>
 </div>
 <div class="row edit" id="sizes"><span>BRUSH</span><button data-size="1" class="on">1</button><button data-size="2">2</button><button data-size="4">4</button><button data-size="8">8</button></div>
-<div class="row edit" id="opt"><span>PLAYERS</span><button data-pl="1" class="on">1</button><button data-pl="2">2</button><span>TIMER</span><button data-tm="0">Off</button><button data-tm="30">30</button><button data-tm="60" class="on">60</button><button data-tm="90">90</button></div>
+<div class="row edit solo" id="opt"><span>PLAYERS</span><button data-pl="1" class="on">1</button><button data-pl="2">2</button><span>TIMER</span><button data-tm="0">Off</button><button data-tm="30">30</button><button data-tm="60" class="on">60</button><button data-tm="90">90</button></div>
 <div class="row edit"><button id="undo">Undo</button><button id="new">New</button><button id="save">Save</button><button id="exp">Export PNG</button></div>
 
 <h2>SAVED DRAWINGS</h2>
@@ -83,7 +87,7 @@ let playing=false,revealed=false,tries=0,scores=[0,0],turn=0,first=1,players=1,t
 const rgb=h=>[1,3,5].map(i=>parseInt(h.substr(i,2),16));
 
 function fillAll(c){bg=c;actx.fillStyle=PAL[c];actx.fillRect(0,0,W,H)}
-function render(){
+function render(){sync();
   vctx.drawImage(art,0,0);
   if(bar){vctx.fillStyle=tcolor===0?PAL[1]:PAL[0];vctx.fillRect(0,0,W,12)}
   const shown=(playing&&!revealed)?[...title].map((ch,i)=>ch===' '||hints.has(i)?ch:'?').join(''):title;if(shown){
@@ -134,7 +138,7 @@ function flood(x,y){
 function pushUndo(){undo.push(actx.getImageData(0,0,W,H));if(undo.length>40)undo.shift()}
 
 view.addEventListener('pointerdown',e=>{
-  if(playing)return;e.preventDefault();view.setPointerCapture(e.pointerId);
+  if(playing||(net&&!canDraw()))return;e.preventDefault();view.setPointerCapture(e.pointerId);
   const p=pos(e);pushUndo();snap=undo[undo.length-1];start=last=p;
   if(tool==='fill'){flood(p[0],p[1]);render();return}
   drawing=true;
@@ -152,7 +156,7 @@ const end=()=>{drawing=false};
 view.addEventListener('pointerup',end);view.addEventListener('pointercancel',end);
 
 $('#undo').onclick=doUndo;
-function doUndo(){if(playing)return;if(!undo.length){msg('NOTHING TO UNDO');return}actx.putImageData(undo.pop(),0,0);render()}
+function doUndo(){if(playing||(net&&!canDraw()))return;if(!undo.length){msg('NOTHING TO UNDO');return}actx.putImageData(undo.pop(),0,0);render()}
 document.addEventListener('keydown',e=>{if((e.ctrlKey||e.metaKey)&&e.key==='z'&&document.activeElement.id!=='ttl'){e.preventDefault();doUndo()}});
 $('#new').onclick=()=>{pushUndo();fillAll(color);cur=null;title='';$('#ttl').value='';bar=false;$('#bar').checked=false;render();msg('NEW CANVAS')};
 
@@ -214,6 +218,128 @@ $('#opt').onclick=e=>{const b=e.target.closest('button');if(!b)return;const k=b.
 $('#gin').addEventListener('keydown',e=>{if(e.key==='Enter')guess()});
 $('#giveup').onclick=()=>{msg('');win('THE ANSWER WAS...')};
 $('#gexit').onclick=()=>{playing=false;stopTimer();$('#tm').textContent='';hints=new Set();$('.screen').classList.remove('play');msg('');render()};
+
+
+/* ---------- MULTIPLAYER (PeerJS, host is the referee) ---------- */
+const WORDS='CAT,DOG,HOUSE,TREE,SUN,MOON,STAR,CAR,BOAT,FISH,BIRD,FLOWER,PIZZA,APPLE,BANANA,ROBOT,GHOST,CASTLE,DRAGON,ROCKET,PLANET,GUITAR,PIANO,CLOCK,KEY,CROWN,HEART,SNOWMAN,UMBRELLA,BRIDGE,MOUNTAIN,RAINBOW,SPIDER,BUTTERFLY,TRAIN,PLANE,BIKE,HAT,SHOE,CUP,BOOK,PHONE,LAMP,CAKE,ICE CREAM,SWORD,SHIELD,PIRATE,WIZARD,ALIEN,JOYSTICK,FLOPPY DISK,COMPUTER,TURTLE,SNAKE,PENGUIN,SHARK,WHALE,BURGER'.split(',');
+const RT=75,blank=()=>({players:[],phase:'lobby',drawer:'',mask:'',tleft:0,round:0,total:0,g:[]});
+let net=null,myId='',room=blank(),word='',guessed=new Set(),rev=new Set(),mt=null,lastC='',feed=[],st=0,sp=false;
+const canDraw=()=>!net||(room.phase==='play'&&room.drawer===myId);
+const nm=id=>(room.players.find(p=>p.id===id)||{name:'?'}).name;
+const add=(id,n)=>{const p=room.players.find(p=>p.id===id);if(p)p.score+=n};
+const mk=()=>[...word].map((c,i)=>/[A-Z0-9]/.test(c)&&!rev.has(i)?'?':c).join('');
+const okImg=d=>typeof d==='string'&&d.indexOf('data:image/png')===0;
+function bc(m,ex){Object.values(net.conns).forEach(c=>{if(c!==ex&&c.open)c.send(m)})}
+function emit(m){if(!net)return;if(net.host)bc(m);else if(net.hc&&net.hc.open)net.hc.send(m)}
+function sync(){
+  if(!net||!canDraw())return;
+  const go=()=>{st=Date.now();const m={t:'c',d:art.toDataURL()};lastC=m.d;emit(m)};
+  if(Date.now()-st>150)go();else if(!sp){sp=true;setTimeout(()=>{sp=false;go()},150)}
+}
+function log(x){feed.push(x);feed=feed.slice(-6);$('#feed').textContent=feed.join('\n')}
+function say(x){log(x);if(net&&net.host)bc({t:'l',x})}
+function push(){room.g=[...guessed];bc(Object.assign({t:'s'},room));ui()}
+function ui(){
+  const r=room,mine=r.phase==='play'&&r.drawer===myId,S=$('.screen');
+  S.classList.toggle('mp',!!net);S.classList.toggle('guessing',!!net&&!mine);
+  $('#lobby').hidden=!!net;$('#room').hidden=!net;if(!net)return;
+  $('#rinfo').textContent='ROOM CODE: '+net.code;
+  $('#plist').textContent=r.players.map(p=>(p.id===r.drawer&&r.phase==='play'?'*':'')+p.name+':'+p.score).join('  ');
+  let h='';
+  if(r.phase==='lobby')h=net.host?'SHARE THE CODE, THEN PRESS START':'WAITING FOR HOST TO START';
+  else if(r.phase==='play')h=(mine?'DRAW: '+word:'GUESS: '+r.mask)+'   TIME:'+r.tleft+'   ROUND '+r.round+'/'+r.total;
+  else if(r.phase==='reveal')h='THE WORD WAS '+r.mask;
+  else{const w=[...r.players].sort((a,b)=>b.score-a.score)[0];h='GAME OVER! WINNER: '+(w?w.name:'-')}
+  $('#mhud').textContent=h;
+  $('#mg').hidden=!(r.phase==='play'&&!mine&&!r.g.includes(myId));
+  $('#start').hidden=!(net.host&&(r.phase==='lobby'||r.phase==='over')&&r.players.length>1);
+}
+function nextRound(){
+  if(!net||!net.host)return;
+  if(room.round>=room.total||room.players.length<2){room.phase='over';room.mask='';push();const w=[...room.players].sort((a,b)=>b.score-a.score)[0];say('GAME OVER! WINNER: '+(w?w.name:'-'));return}
+  room.round++;room.drawer=room.players[(room.round-1)%room.players.length].id;
+  word=WORDS[Math.floor(Math.random()*WORDS.length)];rev=new Set();guessed=new Set();lastC='';
+  room.phase='play';room.tleft=RT;room.mask=mk();
+  fillAll(6);undo=[];render();
+  if(room.drawer!=='H'&&net.conns[room.drawer])net.conns[room.drawer].send({t:'w',w:word});
+  clearInterval(mt);
+  const n=norm(word).length,hn=Math.max(1,Math.floor(n/5)),at=[...Array(hn)].map((_,k)=>Math.round(RT*(1-(k+1)/(hn+1))));
+  mt=setInterval(()=>{
+    room.tleft--;
+    if(at.includes(room.tleft)){const c=[...word].map((ch,i)=>i).filter(i=>/[A-Z0-9]/.test(word[i])&&!rev.has(i));if(c.length>1)rev.add(c[Math.floor(Math.random()*c.length)]);room.mask=mk()}
+    if(room.tleft<=0)endRound();else push();
+  },1000);
+  push();
+}
+function endRound(){
+  clearInterval(mt);if(room.phase!=='play')return;
+  room.phase='reveal';room.mask=word;push();say('THE WORD WAS '+word);setTimeout(nextRound,5000);
+}
+function onGuess(id,text){
+  if(room.phase!=='play'||id===room.drawer||guessed.has(id))return;
+  if(norm(text)===norm(word)){
+    guessed.add(id);const pts=2+Math.ceil(room.tleft/30);add(id,pts);add(room.drawer,2);
+    say(nm(id)+' GOT IT! +'+pts);
+    if(guessed.size>=room.players.length-1)endRound();else push();
+  }else say(nm(id)+': '+text.toUpperCase());
+}
+function drop(id){
+  if(!net)return;delete net.conns[id];
+  const p=room.players.find(q=>q.id===id);if(!p)return;
+  room.players=room.players.filter(q=>q.id!==id);say(p.name+' LEFT');
+  if(room.phase==='play'&&(room.drawer===id||room.players.length<2||guessed.size>=room.players.length-1))endRound();else push();
+}
+function onHostData(c,m){
+  if(!m||typeof m!=='object')return;
+  if(m.t==='h'){
+    if(room.players.length>=6){c.send({t:'x',x:'ROOM FULL'});setTimeout(()=>c.close(),300);return}
+    net.conns[c.peer]=c;room.players.push({id:c.peer,name:String(m.n||'PLAYER').slice(0,12).toUpperCase(),score:0});
+    say(nm(c.peer)+' JOINED');push();
+    if(room.phase==='play'){const d=room.drawer==='H'?art.toDataURL():lastC;if(d)c.send({t:'c',d})}
+  }else if(m.t==='g')onGuess(c.peer,String(m.x||'').slice(0,40));
+  else if(m.t==='c'&&c.peer===room.drawer&&room.phase==='play'&&okImg(m.d)){lastC=m.d;bc(m,c)}
+}
+function onData(m){
+  if(!m||typeof m!=='object')return;
+  if(m.t==='s'){const nr=m.round!==room.round;room=m;if(nr){fillAll(6);undo=[];render()}ui()}
+  else if(m.t==='w'){word=String(m.w).slice(0,30);ui()}
+  else if(m.t==='l')log(String(m.x).slice(0,60));
+  else if(m.t==='c'&&okImg(m.d)){const im=new Image();im.onload=()=>{actx.drawImage(im,0,0);render()};im.src=m.d}
+  else if(m.t==='x')leave(String(m.x).slice(0,30));
+}
+function enter(){title='';bar=false;$('#ttl').value='';$('#bar').checked=false;fillAll(6);undo=[];feed=[];render()}
+const pname=()=>($('#pname').value.trim()||'PLAYER').toUpperCase().slice(0,12);
+function noLib(){if(typeof Peer==='undefined'){msg('?NETWORK LIBRARY NOT LOADED');return true}return false}
+function hostRoom(){
+  if(noLib())return;const me=pname();
+  const code=Array.from({length:5},()=>'ABCDEFGHJKMNPQRSTUVWXYZ'[Math.floor(Math.random()*23)]).join('');
+  const peer=new Peer('pag16-'+code);net={host:true,peer,conns:{},code};
+  peer.on('open',()=>{myId='H';room=blank();room.players=[{id:'H',name:me,score:0}];enter();log('ROOM READY. SHARE CODE '+code);ui()});
+  peer.on('connection',c=>{c.on('data',m=>onHostData(c,m));c.on('close',()=>drop(c.peer));c.on('error',()=>drop(c.peer))});
+  peer.on('error',e=>{if(!net||net.peer!==peer)return;if(e.type==='unavailable-id'){peer.destroy();net=null;hostRoom();return}leave('?NET ERROR: '+e.type)});
+}
+function joinRoom(){
+  if(noLib())return;const code=$('#jcode').value.trim().toUpperCase();
+  if(code.length!==5){msg('?ENTER THE 5-LETTER CODE');return}
+  const me=pname(),peer=new Peer();net={host:false,peer,code};msg('JOINING...');
+  peer.on('open',id=>{
+    myId=id;const c=peer.connect('pag16-'+code,{reliable:true});net.hc=c;
+    c.on('open',()=>{room=blank();enter();c.send({t:'h',n:me});ui();msg('')});
+    c.on('data',onData);
+    c.on('close',()=>{if(net&&net.hc===c)leave('HOST LEFT')});
+    c.on('error',()=>{if(net&&net.hc===c)leave('?CONNECTION ERROR')});
+  });
+  peer.on('error',e=>{if(net&&net.peer===peer)leave(e.type==='peer-unavailable'?'?ROOM NOT FOUND':'?NET ERROR: '+e.type)});
+}
+function leave(t){
+  clearInterval(mt);if(net){try{net.peer.destroy()}catch(e){}}
+  net=null;myId='';word='';guessed=new Set();room=blank();
+  $('.screen').classList.remove('mp','guessing');$('#lobby').hidden=false;$('#room').hidden=true;msg(t||'');
+}
+$('#host').onclick=hostRoom;$('#join').onclick=joinRoom;$('#leave').onclick=()=>leave('');
+$('#start').onclick=()=>{room.players.forEach(p=>p.score=0);room.round=0;room.total=room.players.length*2;nextRound()};
+function sendG(){const t=$('#mgin').value.trim();$('#mgin').value='';if(!t||!net)return;if(net.host)onGuess('H',t);else if(net.hc&&net.hc.open)net.hc.send({t:'g',x:t})}
+$('#mgbtn').onclick=sendG;$('#mgin').addEventListener('keydown',e=>{if(e.key==='Enter')sendG()});
 
 fillAll(6);mark();render();gallery();
 try{document.fonts.load('8px "Press Start 2P"').then(render)}catch(e){}
