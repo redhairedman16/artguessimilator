@@ -297,7 +297,7 @@ function onHostData(c,m){
     say(nm(c.peer)+' JOINED');push();
     if(room.phase==='play'){const d=room.drawer==='H'?art.toDataURL():lastC;if(d)c.send({t:'c',d})}
   }else if(m.t==='g')onGuess(c.peer,String(m.x||'').slice(0,40));
-  else if(m.t==='c'&&c.peer===room.drawer&&room.phase==='play'&&okImg(m.d)){lastC=m.d;bc(m,c)}
+  else if(m.t==='c'&&c.peer===room.drawer&&room.phase==='play'&&okImg(m.d)){lastC=m.d;bc(m,c);const im=new Image();im.onload=()=>{actx.drawImage(im,0,0);render()};im.src=m.d}
 }
 function onData(m){
   if(!m||typeof m!=='object')return;
