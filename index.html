@@ -41,7 +41,8 @@ button.on{background:var(--ink);color:var(--screen)}
 #ov[hidden]{display:none}
 #guess{display:none}.play #guess{display:block}.play .edit,.play h2,.play #gal{display:none}#guess .row span{color:var(--hi)}
 [hidden]{display:none!important}.hd{color:var(--hi);margin:12px 0 0}.mp .solo,.mp #save,.mp #exp,.mp h2,.mp #gal{display:none}.guessing .edit{display:none}#feed{white-space:pre-line;color:var(--dim);min-height:6em;margin:6px 0}#plist,#mhud{margin:6px 0;word-break:break-word}#mhud{color:var(--hi)}#jcode,#pname{flex:none;min-width:0;width:150px}
-select{font:inherit;background:var(--screen);color:var(--ink);border:2px solid var(--ink);padding:6px}input[type=range]{accent-color:var(--hi);width:110px}button.k{padding:2px 6px;font-size:9px;border-color:#C07060;color:#C07060;margin-right:6px}#hset span{color:var(--hi)}
+select{font:inherit;background:var(--screen);color:var(--ink);border:2px solid var(--ink);padding:6px}input[type=range]{accent-color:var(--hi);width:110px}button.k{padding:2px 6px;font-size:9px;border-color:#C07060;color:#C07060;margin-right:6px}#hset span,#vrow span{color:var(--hi)}
+#boot{position:fixed;inset:0;z-index:9;background:var(--border);padding:min(4vw,26px)}#boot .bw{background:var(--screen);height:100%;padding:14px;overflow:auto}#bt{margin:10px 0;font:inherit;white-space:pre-wrap;color:var(--ink)}#bt::after{content:"";display:inline-block;width:.9em;height:1.1em;background:var(--ink);vertical-align:-2px;animation:bl 1s steps(1) infinite}.bb{border:2px solid var(--ink);height:14px}#bbar{height:100%;background:var(--hi);width:0}
 #ov img{max-width:100%;max-height:60vh;image-rendering:pixelated;border:3px solid var(--ink)}
 </style>
 </head>
@@ -52,7 +53,7 @@ select{font:inherit;background:var(--screen);color:var(--ink);border:2px solid v
 <p>READY.<span class="cur"></span></p>
 <div id="lobby"><p class="hd">MULTIPLAYER</p><div class="row"><input type="text" id="pname" maxlength="12" autocomplete="off" spellcheck="false" placeholder="YOUR NAME"><button id="host">Host game</button></div><div class="row"><input type="text" id="jcode" maxlength="5" autocomplete="off" spellcheck="false" placeholder="CODE"><button id="join">Join game</button></div></div>
 <div id="room" hidden><div class="row"><span id="rinfo"></span><button id="start" hidden>Start</button><button id="leave">Leave</button></div>
-<div class="row" id="hset" hidden><span>MAX</span><input type="range" id="smax" min="2" max="8" value="6"><span id="vmax">6</span><span>TIME</span><select id="stime"><option value="30">30s</option><option value="45">45s</option><option value="60">60s</option><option value="75" selected>75s</option><option value="90">90s</option><option value="120">120s</option></select><span>ROUNDS</span><button id="rm">-</button><span id="vr">6</span><button id="rp">+</button></div><div id="plist"></div><div id="mhud"></div><div class="row" id="mg" hidden><input type="text" id="mgin" maxlength="40" autocomplete="off" spellcheck="false" placeholder="TYPE YOUR GUESS"><button id="mgbtn">Guess</button></div><div id="feed"></div></div>
+<div class="row" id="hset" hidden><span>MAX</span><input type="range" id="smax" min="2" max="8" value="6"><span id="vmax">6</span><span>TIME</span><select id="stime"><option value="30">30s</option><option value="45">45s</option><option value="60">60s</option><option value="75" selected>75s</option><option value="90">90s</option><option value="120">120s</option></select><span>ROUNDS</span><button id="rm">-</button><span id="vr">6</span><button id="rp">+</button><span>MODE</span><select id="smode"><option value="classic">Classic</option><option value="multi">Multidraw</option></select><span>POINTS</span><button id="pm">-</button><span id="vp">3</span><button id="pp">+</button></div><div id="plist"></div><div id="mhud"></div><div class="row" id="mg" hidden><input type="text" id="mgin" maxlength="40" autocomplete="off" spellcheck="false" placeholder="TYPE YOUR GUESS"><button id="mgbtn">Guess</button></div><div class="row" id="vrow" hidden></div><div id="feed"></div></div>
 
 <div class="row edit solo"><label for="ttl">TITLE:</label><input type="text" id="ttl" maxlength="40" autocomplete="off" spellcheck="false" placeholder="TYPE A TITLE"><label class="chk"><input type="checkbox" id="bar"> BAR</label><button id="play">Play</button></div>
 <div class="row edit solo"><span>TITLE COLOR</span><div id="tpal" class="pal small"></div></div>
@@ -73,6 +74,7 @@ select{font:inherit;background:var(--screen);color:var(--ink);border:2px solid v
 <div id="gal"></div>
 </main></div>
 
+<div id="boot" hidden><div class="bw"><p class="hd">**** PIXEL ART GUESSER ****</p><pre id="bt"></pre><div class="bb"><div id="bbar"></div></div></div></div>
 <div id="ov" hidden><p>RIGHT-CLICK OR LONG-PRESS THE IMAGE TO SAVE IT</p><img id="oimg" alt="Exported drawing"><button id="oc">Close</button></div>
 
 <script>
@@ -224,9 +226,9 @@ $('#gexit').onclick=()=>{playing=false;stopTimer();$('#tm').textContent='';hints
 
 /* ---------- MULTIPLAYER (PeerJS, host is the referee) ---------- */
 const WORDS='CAT,DOG,HOUSE,TREE,SUN,MOON,STAR,CAR,BOAT,FISH,BIRD,FLOWER,PIZZA,APPLE,BANANA,ROBOT,GHOST,CASTLE,DRAGON,ROCKET,PLANET,GUITAR,PIANO,CLOCK,KEY,CROWN,HEART,SNOWMAN,UMBRELLA,BRIDGE,MOUNTAIN,RAINBOW,SPIDER,BUTTERFLY,TRAIN,PLANE,BIKE,HAT,SHOE,CUP,BOOK,PHONE,LAMP,CAKE,ICE CREAM,SWORD,SHIELD,PIRATE,WIZARD,ALIEN,JOYSTICK,FLOPPY DISK,COMPUTER,TURTLE,SNAKE,PENGUIN,SHARK,WHALE,BURGER'.split(',');
-const blank=()=>({players:[],phase:'lobby',drawer:'',mask:'',tleft:0,round:0,total:0,g:[],max:6,time:75,rounds:6});
-let net=null,pk='',myId='',room=blank(),word='',guessed=new Set(),rev=new Set(),mt=null,lastC='',feed=[],st=0,sp=false;
-const canDraw=()=>!net||(room.phase==='play'&&room.drawer===myId);
+const blank=()=>({players:[],phase:'lobby',drawer:'',mask:'',tleft:0,round:0,total:0,g:[],max:6,time:75,rounds:6,mode:'classic',pts:3,vi:0,vn:0,vd:[]});
+let net=null,pk='',subs={},vv={},order=[],vkey='',mineV=-1,bt=[],bi=null,bst=0,myId='',room=blank(),word='',guessed=new Set(),rev=new Set(),mt=null,lastC='',feed=[],st=0,sp=false;
+const canDraw=()=>!net||(room.phase==='play'&&room.drawer===myId)||(room.mode==='multi'&&room.phase==='draw');
 const nm=id=>(room.players.find(p=>p.id===id)||{name:'?'}).name;
 const add=(id,n)=>{const p=room.players.find(p=>p.id===id);if(p)p.score+=n};
 const mk=()=>[...word].map((c,i)=>/[A-Z0-9]/.test(c)&&!rev.has(i)?'?':c).join('');
@@ -234,7 +236,7 @@ const okImg=d=>typeof d==='string'&&d.indexOf('data:image/png')===0;
 function bc(m,ex){Object.values(net.conns).forEach(c=>{if(c!==ex&&c.open)c.send(m)})}
 function emit(m){if(!net)return;if(net.host)bc(m);else if(net.hc&&net.hc.open)net.hc.send(m)}
 function sync(){
-  if(!net||!canDraw())return;
+  if(!net||!canDraw()||room.mode==='multi')return;
   const go=()=>{st=Date.now();const m={t:'c',d:art.toDataURL()};lastC=m.d;emit(m)};
   if(Date.now()-st>150)go();else if(!sp){sp=true;setTimeout(()=>{sp=false;go()},150)}
 }
@@ -242,7 +244,7 @@ function log(x){feed.push(x);feed=feed.slice(-6);$('#feed').textContent=feed.joi
 function say(x){log(x);if(net&&net.host)bc({t:'l',x})}
 function push(){room.g=[...guessed];bc(Object.assign({t:'s'},room));ui()}
 function ui(){
-  const r=room,mine=r.phase==='play'&&r.drawer===myId,S=$('.screen');
+  const r=room,mine=canDraw(),S=$('.screen');
   S.classList.toggle('mp',!!net);S.classList.toggle('guessing',!!net&&!mine);
   $('#lobby').hidden=!!net;$('#room').hidden=!net;if(!net)return;
   $('#rinfo').textContent='ROOM CODE: '+net.code;
@@ -252,19 +254,30 @@ function ui(){
       if(net.host&&p.id!=='H'){const b=document.createElement('button');b.textContent='Kick';b.className='k';b.onclick=()=>kick(p.id);pl.appendChild(b)}
       pl.appendChild(document.createTextNode(' '))})}
   $('#hset').hidden=!(net.host&&(r.phase==='lobby'||r.phase==='over'));
-  $('#smax').value=r.max;$('#vmax').textContent=r.max;$('#stime').value=r.time;$('#vr').textContent=r.rounds;
+  $('#smax').value=r.max;$('#vmax').textContent=r.max;$('#stime').value=r.time;$('#vr').textContent=r.rounds;$('#smode').value=r.mode;$('#vp').textContent=r.pts;
   let h='';
-  if(r.phase==='lobby')h=(net.host?'SHARE THE CODE, THEN PRESS START':'WAITING FOR HOST TO START')+'   MAX:'+r.max+' TIME:'+r.time+'S ROUNDS:'+r.rounds;
+  if(r.phase==='lobby')h=(net.host?'SHARE THE CODE, THEN PRESS START':'WAITING FOR HOST TO START')+'   MODE:'+r.mode.toUpperCase()+' MAX:'+r.max+' TIME:'+r.time+'S ROUNDS:'+r.rounds+' PTS:'+r.pts+(r.mode==='multi'?'  (NEEDS 3+ PLAYERS)':'');
   else if(r.phase==='play')h=(mine?'DRAW: '+word:'GUESS: '+r.mask)+'   TIME:'+r.tleft+'   ROUND '+r.round+'/'+r.total;
+  else if(r.phase==='draw')h='EVERYONE DRAW: '+r.mask+'   TIME:'+r.tleft+'   ROUND '+r.round+'/'+r.total;
+  else if(r.phase==='collect')h='COLLECTING DRAWINGS...';
+  else if(r.phase==='vote')h=(mineV===r.vi?'THIS ONE IS YOURS! WAIT...':'WHO DREW THIS?')+'   '+(r.vi+1)+'/'+r.vn+'   TIME:'+r.tleft;
+  else if(r.phase==='vreveal')h='THIS WAS DRAWN BY '+r.mask;
   else if(r.phase==='reveal')h='THE WORD WAS '+r.mask;
   else{const w=[...r.players].sort((a,b)=>b.score-a.score)[0];h='GAME OVER! WINNER: '+(w?w.name:'-')}
   $('#mhud').textContent=h;
   $('#mg').hidden=!(r.phase==='play'&&!mine&&!r.g.includes(myId));
-  $('#start').hidden=!(net.host&&(r.phase==='lobby'||r.phase==='over')&&r.players.length>1);
+  const elig=r.phase==='vote'&&mineV!==r.vi&&!r.vd.includes(myId);
+  $('#vrow').hidden=!elig;
+  const vk=elig?r.players.map(p=>p.id).join()+'|'+r.vi:'';
+  if(vk!==vkey){vkey=vk;const v=$('#vrow');v.textContent='';
+    if(elig){const l=document.createElement('span');l.textContent='WHO DREW IT?';v.appendChild(l);
+      r.players.filter(p=>p.id!==myId).forEach(p=>{const b=document.createElement('button');b.textContent=p.name;b.onclick=()=>castVote(p.id);v.appendChild(b)})}}
+  $('#start').hidden=!(net.host&&(r.phase==='lobby'||r.phase==='over')&&r.players.length>(r.mode==='multi'?2:1));
 }
 function nextRound(){
   if(!net||!net.host)return;
-  if(room.round>=room.total||room.players.length<2){room.phase='over';room.mask='';push();const w=[...room.players].sort((a,b)=>b.score-a.score)[0];say('GAME OVER! WINNER: '+(w?w.name:'-'));return}
+  if(room.round>=room.total||room.players.length<2){room.phase='over';room.mask='';clearInterval(mt);push();const w=[...room.players].sort((a,b)=>b.score-a.score)[0];say('GAME OVER! WINNER: '+(w?w.name:'-'));return}
+  if(room.mode==='multi'){startMulti();return}
   room.round++;room.drawer=room.players[(room.round-1)%room.players.length].id;
   word=WORDS[Math.floor(Math.random()*WORDS.length)];rev=new Set();guessed=new Set();lastC='';
   room.phase='play';room.tleft=room.time;room.mask=mk();
@@ -286,7 +299,7 @@ function endRound(){
 function onGuess(id,text){
   if(room.phase!=='play'||id===room.drawer||guessed.has(id))return;
   if(norm(text)===norm(word)){
-    guessed.add(id);const pts=2+Math.ceil(room.tleft/30);add(id,pts);add(room.drawer,2);
+    guessed.add(id);const pts=room.pts;add(id,pts);add(room.drawer,Math.ceil(pts/2));
     say(nm(id)+' GOT IT! +'+pts);
     if(guessed.size>=room.players.length-1)endRound();else push();
   }else say(nm(id)+': '+text.toUpperCase());
@@ -295,7 +308,7 @@ function drop(id,why){
   if(!net)return;delete net.conns[id];
   const p=room.players.find(q=>q.id===id);if(!p)return;
   room.players=room.players.filter(q=>q.id!==id);say(p.name+(why||' LEFT'));
-  if(room.phase==='play'&&(room.drawer===id||room.players.length<2||guessed.size>=room.players.length-1))endRound();else push();
+  if(room.phase==='play'&&(room.drawer===id||room.players.length<2||guessed.size>=room.players.length-1))endRound();else if(room.phase==='vote'&&order[room.vi]===id)revealVote();else if(room.mode==='multi'&&room.phase!=='lobby'&&room.phase!=='over'&&room.players.length<2){clearInterval(mt);nextRound()}else push();
 }
 function onHostData(c,m){
   if(!m||typeof m!=='object')return;
@@ -305,11 +318,14 @@ function onHostData(c,m){
     say(nm(c.peer)+' JOINED');push();
     if(room.phase==='play'){const d=room.drawer==='H'?art.toDataURL():lastC;if(d)c.send({t:'c',d})}
   }else if(m.t==='g')onGuess(c.peer,String(m.x||'').slice(0,40));
+  else if(m.t==='v')onVote(c.peer,String(m.x));
+  else if(m.t==='d'&&room.phase==='collect'&&okImg(m.d)){subs[c.peer]=m.d;if(Object.keys(subs).length>=room.players.length)beginVote()}
   else if(m.t==='c'&&c.peer===room.drawer&&room.phase==='play'&&okImg(m.d)){lastC=m.d;bc(m,c);const im=new Image();im.onload=()=>{actx.drawImage(im,0,0);render()};im.src=m.d}
 }
 function onData(m){
   if(!m||typeof m!=='object')return;
-  if(m.t==='s'){const nr=m.round!==room.round;room=m;if(nr){fillAll(6);undo=[];render()}ui()}
+  if(m.t==='s'){const nr=m.round!==room.round,pv=room.phase;room=m;if(nr){fillAll(6);undo=[];mineV=-1;render()}if(m.mode==='multi'&&m.phase==='collect'&&pv!=='collect'&&net&&net.hc&&net.hc.open)net.hc.send({t:'d',d:art.toDataURL()});ui()}
+  else if(m.t==='me'){mineV=+m.i;ui()}
   else if(m.t==='w'){word=String(m.w).slice(0,30);ui()}
   else if(m.t==='l')log(String(m.x).slice(0,60));
   else if(m.t==='c'&&okImg(m.d)){const im=new Image();im.onload=()=>{actx.drawImage(im,0,0);render()};im.src=m.d}
@@ -329,27 +345,82 @@ function hostRoom(){
 function joinRoom(){
   if(noLib())return;const code=$('#jcode').value.trim().toUpperCase();
   if(code.length!==5){msg('?ENTER THE 5-LETTER CODE');return}
-  const me=pname(),peer=new Peer();net={host:false,peer,code};msg('JOINING...');
+  const me=pname(),peer=new Peer();net={host:false,peer,code};msg('JOINING...');bootShow();
   peer.on('open',id=>{
     myId=id;const c=peer.connect('pag16-'+code,{reliable:true});net.hc=c;
-    c.on('open',()=>{room=blank();enter();c.send({t:'h',n:me});ui();msg('')});
+    c.on('open',()=>{room=blank();enter();c.send({t:'h',n:me});ui();msg('');bootDone()});
     c.on('data',onData);
     c.on('close',()=>{if(net&&net.hc===c)leave('HOST LEFT')});
     c.on('error',()=>{if(net&&net.hc===c)leave('?CONNECTION ERROR')});
   });
   peer.on('error',e=>{if(net&&net.peer===peer)leave(e.type==='peer-unavailable'?'?ROOM NOT FOUND':'?NET ERROR: '+e.type)});
 }
-function leave(t){
+function leave(t){bootHide();
   clearInterval(mt);if(net){try{net.peer.destroy()}catch(e){}}
-  net=null;pk='';myId='';word='';guessed=new Set();room=blank();
+  net=null;pk='';vkey='';mineV=-1;myId='';word='';guessed=new Set();room=blank();
   $('.screen').classList.remove('mp','guessing');$('#lobby').hidden=false;$('#room').hidden=true;msg(t||'');
 }
 $('#host').onclick=hostRoom;$('#join').onclick=joinRoom;$('#leave').onclick=()=>leave('');
 $('#start').onclick=()=>{room.players.forEach(p=>p.score=0);room.round=0;room.total=room.rounds;nextRound()};
+function showImg(d){const im=new Image();im.onload=()=>{actx.drawImage(im,0,0);render()};im.src=d}
+function startMulti(){
+  room.round++;room.drawer='';word=WORDS[Math.floor(Math.random()*WORDS.length)];
+  subs={};vv={};order=[];mineV=-1;room.vi=0;room.vn=0;room.vd=[];room.mask=word;
+  room.phase='draw';room.tleft=room.time;fillAll(6);undo=[];render();
+  clearInterval(mt);mt=setInterval(mtick,1000);push();
+}
+function mtick(){
+  if(room.phase!=='draw'&&room.phase!=='vote')return;
+  room.tleft--;
+  if(room.tleft<=0){if(room.phase==='draw')collect();else revealVote()}else push();
+}
+function collect(){if(room.phase!=='draw')return;room.phase='collect';room.tleft=0;subs={H:art.toDataURL()};push();setTimeout(beginVote,3500)}
+function beginVote(){
+  if(room.phase!=='collect')return;
+  order=Object.keys(subs).filter(id=>room.players.some(p=>p.id===id));
+  for(let i=order.length-1;i>0;i--){const j=Math.floor(Math.random()*(i+1));[order[i],order[j]]=[order[j],order[i]]}
+  if(order.length<2){say('NOT ENOUGH DRAWINGS');nextRound();return}
+  room.vn=order.length;room.vi=-1;showNext();
+}
+function showNext(){
+  if(!net||!net.host)return;
+  room.vi++;if(room.vi>=room.vn){nextRound();return}
+  const a=order[room.vi];vv={};room.vd=[];room.phase='vote';room.tleft=15;mineV=a==='H'?room.vi:-1;
+  if(net.conns[a])net.conns[a].send({t:'me',i:room.vi});
+  bc({t:'c',d:subs[a]});showImg(subs[a]);push();
+}
+function revealVote(){
+  if(room.phase!=='vote')return;
+  const a=order[room.vi];let ok=0,fooled=0;
+  Object.keys(vv).forEach(id=>{if(vv[id]===a){add(id,room.pts);ok++}else fooled++});
+  add(a,fooled);room.phase='vreveal';room.mask=nm(a);room.tleft=0;push();
+  say('DRAWN BY '+nm(a)+': '+ok+' RIGHT, '+fooled+' FOOLED');setTimeout(showNext,4500);
+}
+function onVote(id,pid){
+  if(room.phase!=='vote')return;const a=order[room.vi];
+  if(id===a||vv[id]||pid===id||!room.players.some(p=>p.id===pid))return;
+  vv[id]=pid;room.vd=Object.keys(vv);
+  if(room.vd.length>=room.players.filter(p=>p.id!==a).length)revealVote();else push();
+}
+function castVote(pid){if(!net)return;if(net.host)onVote('H',pid);else if(net.hc&&net.hc.open)net.hc.send({t:'v',x:pid})}
+const BL=[[0,'BOOTING UP MODEM...'],[600,'ATZ'],[1000,'OK'],[1500,'ATDT 555-0164'],[2200,'DIALING...'],[3000,'CARRIER DETECTED'],[3500,'CONNECT 300 BAUD'],[4000,'HANDSHAKING WITH HOST...'],[4500,'LOADING DRIVER FROM DRIVE 8'],[5000,'CHECKING PARITY... OK'],[5500,'SYNCING RAM DISK']];
+function bootClear(){bt.forEach(clearTimeout);bt=[];clearInterval(bi)}
+function bootHide(){bootClear();$('#boot').hidden=true}
+function bootShow(){
+  bootClear();const t=$('#bt');t.textContent='';$('#bbar').style.width='0%';$('#boot').hidden=false;bst=Date.now();
+  BL.forEach(l=>bt.push(setTimeout(()=>{t.textContent+=l[1]+'\n'},l[0])));
+  bi=setInterval(()=>{$('#bbar').style.width=Math.min(95,(Date.now()-bst)/65)+'%'},100);
+}
+function bootDone(){
+  if($('#boot').hidden)return;
+  const w=Math.max(0,6200-(Date.now()-bst));
+  bt.push(setTimeout(()=>{bootClear();$('#bt').textContent+='CONNECT 56000\nREADY.\n';$('#bbar').style.width='100%';setTimeout(bootHide,900)},w));
+}
 function kick(id){const c=net&&net.conns[id];if(!c)return;try{c.send({t:'x',x:'KICKED BY HOST'})}catch(e){}setTimeout(()=>c.close(),300);drop(id,' WAS KICKED')}
-function cfgSet(k,v){if(!net||!net.host)return;if(k==='max')v=Math.max(2,Math.min(8,Math.max(v,room.players.length)));if(k==='rounds')v=Math.max(1,Math.min(30,v));room[k]=v;push()}
+function cfgSet(k,v){if(!net||!net.host)return;if(k==='max')v=Math.max(2,Math.min(8,Math.max(v,room.players.length)));if(k==='rounds')v=Math.max(1,Math.min(30,v));if(k==='pts')v=Math.max(1,Math.min(20,v));room[k]=v;push()}
 $('#smax').oninput=e=>cfgSet('max',+e.target.value);$('#stime').onchange=e=>cfgSet('time',+e.target.value);
 $('#rm').onclick=()=>cfgSet('rounds',room.rounds-1);$('#rp').onclick=()=>cfgSet('rounds',room.rounds+1);
+$('#smode').onchange=e=>cfgSet('mode',e.target.value);$('#pm').onclick=()=>cfgSet('pts',room.pts-1);$('#pp').onclick=()=>cfgSet('pts',room.pts+1);
 function sendG(){const t=$('#mgin').value.trim();$('#mgin').value='';if(!t||!net)return;if(net.host)onGuess('H',t);else if(net.hc&&net.hc.open)net.hc.send({t:'g',x:t})}
 $('#mgbtn').onclick=sendG;$('#mgin').addEventListener('keydown',e=>{if(e.key==='Enter')sendG()});
 
