@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <title>Pixel Art Guesser</title>
 <link href="https://fonts.googleapis.com/css2?family=Press+Start+2P&display=swap" rel="stylesheet">
-<script src="https://cdn.jsdelivr.net/npm/peerjs@1.5.4/dist/peerjs.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/mqtt/5.10.1/mqtt.min.js"></script>
 <style>
 :root{--border:#6C5EB5;--screen:#352879;--ink:#A79CF0;--hi:#B8C76F;--dim:#6C5EB5;color-scheme:dark;box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px);background:var(--border)}
 html{scroll-padding-top:env(safe-area-inset-top,0px)}
@@ -53,7 +53,7 @@ select{font:inherit;background:var(--screen);color:var(--ink);border:2px solid v
 <p>READY.<span class="cur"></span></p>
 <div id="lobby"><p class="hd">MULTIPLAYER</p><div class="row"><input type="text" id="pname" maxlength="12" autocomplete="off" spellcheck="false" placeholder="YOUR NAME"><button id="host">Host game</button></div><div class="row"><input type="text" id="jcode" maxlength="5" autocomplete="off" spellcheck="false" placeholder="CODE"><button id="join">Join game</button></div></div>
 <div id="room" hidden><div class="row"><span id="rinfo"></span><button id="start" hidden>Start</button><button id="leave">Leave</button></div>
-<div class="row" id="hset" hidden><span>MAX</span><input type="range" id="smax" min="2" max="8" value="6"><span id="vmax">6</span><span>TIME</span><select id="stime"><option value="30">30s</option><option value="45">45s</option><option value="60">60s</option><option value="75" selected>75s</option><option value="90">90s</option><option value="120">120s</option></select><span>ROUNDS</span><button id="rm">-</button><span id="vr">6</span><button id="rp">+</button><span>MODE</span><select id="smode"><option value="classic">Classic</option><option value="multi">Multidraw</option></select><span>POINTS</span><button id="pm">-</button><span id="vp">3</span><button id="pp">+</button></div><div id="plist"></div><div id="mhud"></div><div class="row" id="mg" hidden><input type="text" id="mgin" maxlength="40" autocomplete="off" spellcheck="false" placeholder="TYPE YOUR GUESS"><button id="mgbtn">Guess</button></div><div class="row" id="vrow" hidden></div><div id="feed"></div></div>
+<div class="row" id="hset" hidden><span>MAX</span><input type="range" id="smax" min="2" max="8" value="6"><span id="vmax">6</span><span>TIME</span><select id="stime"><option value="30">30s</option><option value="45">45s</option><option value="60">60s</option><option value="75" selected>75s</option><option value="90">90s</option><option value="120">120s</option></select><span>ROUNDS</span><button id="rm">-</button><span id="vr">6</span><button id="rp">+</button><span>MODE</span><select id="smode"><option value="classic">Classic</option><option value="multi">Multidraw</option></select><span>POINTS</span><button id="pm">-</button><span id="vp">3</span><button id="pp">+</button><span>PROMPTS</span><select id="spro"><option value="builtin">Built-in</option><option value="custom">Players write</option></select></div><div id="plist"></div><div id="mhud"></div><div class="row" id="mg" hidden><input type="text" id="mgin" maxlength="40" autocomplete="off" spellcheck="false" placeholder="TYPE YOUR GUESS"><button id="mgbtn">Guess</button></div><div class="row" id="vrow" hidden></div><div class="row" id="wrow" hidden><input type="text" id="win" maxlength="30" autocomplete="off" spellcheck="false" placeholder="WRITE A PROMPT TO DRAW"><button id="wbtn">Send</button></div><div id="feed"></div></div>
 
 <div class="row edit solo"><label for="ttl">TITLE:</label><input type="text" id="ttl" maxlength="40" autocomplete="off" spellcheck="false" placeholder="TYPE A TITLE"><label class="chk"><input type="checkbox" id="bar"> BAR</label><button id="play">Play</button></div>
 <div class="row edit solo"><span>TITLE COLOR</span><div id="tpal" class="pal small"></div></div>
@@ -226,14 +226,14 @@ $('#gexit').onclick=()=>{playing=false;stopTimer();$('#tm').textContent='';hints
 
 /* ---------- MULTIPLAYER (PeerJS, host is the referee) ---------- */
 const WORDS='CAT,DOG,HOUSE,TREE,SUN,MOON,STAR,CAR,BOAT,FISH,BIRD,FLOWER,PIZZA,APPLE,BANANA,ROBOT,GHOST,CASTLE,DRAGON,ROCKET,PLANET,GUITAR,PIANO,CLOCK,KEY,CROWN,HEART,SNOWMAN,UMBRELLA,BRIDGE,MOUNTAIN,RAINBOW,SPIDER,BUTTERFLY,TRAIN,PLANE,BIKE,HAT,SHOE,CUP,BOOK,PHONE,LAMP,CAKE,ICE CREAM,SWORD,SHIELD,PIRATE,WIZARD,ALIEN,JOYSTICK,FLOPPY DISK,COMPUTER,TURTLE,SNAKE,PENGUIN,SHARK,WHALE,BURGER'.split(',');
-const blank=()=>({players:[],phase:'lobby',drawer:'',mask:'',tleft:0,round:0,total:0,g:[],max:6,time:75,rounds:6,mode:'classic',pts:3,vi:0,vn:0,vd:[]});
-let net=null,pk='',subs={},vv={},order=[],vkey='',mineV=-1,bt=[],bi=null,bst=0,myId='',room=blank(),word='',guessed=new Set(),rev=new Set(),mt=null,lastC='',feed=[],st=0,sp=false;
+const blank=()=>({players:[],phase:'lobby',drawer:'',mask:'',tleft:0,round:0,total:0,g:[],max:6,time:75,rounds:6,mode:'classic',pts:3,vi:0,vn:0,vd:[],src:'builtin',wn:0});
+let net=null,pk='',sentR=-1,props={},subs={},vv={},order=[],vkey='',mineV=-1,bt=[],bi=null,bst=0,myId='',room=blank(),word='',guessed=new Set(),rev=new Set(),mt=null,lastC='',feed=[],st=0,sp=false;
 const canDraw=()=>!net||(room.phase==='play'&&room.drawer===myId)||(room.mode==='multi'&&room.phase==='draw');
 const nm=id=>(room.players.find(p=>p.id===id)||{name:'?'}).name;
 const add=(id,n)=>{const p=room.players.find(p=>p.id===id);if(p)p.score+=n};
 const mk=()=>[...word].map((c,i)=>/[A-Z0-9]/.test(c)&&!rev.has(i)?'?':c).join('');
 const okImg=d=>typeof d==='string'&&d.indexOf('data:image/png')===0;
-function bc(m,ex){Object.values(net.conns).forEach(c=>{if(c!==ex&&c.open)c.send(m)})}
+function bc(m,ex){net.peer.pub('all',ex?Object.assign({},m,{o:ex.peer}):m)}
 function emit(m){if(!net)return;if(net.host)bc(m);else if(net.hc&&net.hc.open)net.hc.send(m)}
 function sync(){
   if(!net||!canDraw()||room.mode==='multi')return;
@@ -254,10 +254,11 @@ function ui(){
       if(net.host&&p.id!=='H'){const b=document.createElement('button');b.textContent='Kick';b.className='k';b.onclick=()=>kick(p.id);pl.appendChild(b)}
       pl.appendChild(document.createTextNode(' '))})}
   $('#hset').hidden=!(net.host&&(r.phase==='lobby'||r.phase==='over'));
-  $('#smax').value=r.max;$('#vmax').textContent=r.max;$('#stime').value=r.time;$('#vr').textContent=r.rounds;$('#smode').value=r.mode;$('#vp').textContent=r.pts;
+  $('#smax').value=r.max;$('#vmax').textContent=r.max;$('#stime').value=r.time;$('#vr').textContent=r.rounds;$('#smode').value=r.mode;$('#vp').textContent=r.pts;$('#spro').value=r.src;
   let h='';
-  if(r.phase==='lobby')h=(net.host?'SHARE THE CODE, THEN PRESS START':'WAITING FOR HOST TO START')+'   MODE:'+r.mode.toUpperCase()+' MAX:'+r.max+' TIME:'+r.time+'S ROUNDS:'+r.rounds+' PTS:'+r.pts+(r.mode==='multi'?'  (NEEDS 3+ PLAYERS)':'');
+  if(r.phase==='lobby')h=(net.host?'SHARE THE CODE, THEN PRESS START':'WAITING FOR HOST TO START')+'   MODE:'+r.mode.toUpperCase()+' MAX:'+r.max+' TIME:'+r.time+'S ROUNDS:'+r.rounds+' PTS:'+r.pts+(r.mode==='multi'?'  PROMPTS:'+(r.src==='custom'?'PLAYER-WRITTEN':'BUILT-IN')+'  (NEEDS 3+ PLAYERS)':'');
   else if(r.phase==='play')h=(mine?'DRAW: '+word:'GUESS: '+r.mask)+'   TIME:'+r.tleft+'   ROUND '+r.round+'/'+r.total;
+  else if(r.phase==='write')h='WRITE A PROMPT FOR EVERYONE TO DRAW!   TIME:'+r.tleft+'   SENT:'+r.wn+'/'+r.players.length+(sentR===r.round?'  (YOURS IS IN)':'');
   else if(r.phase==='draw')h='EVERYONE DRAW: '+r.mask+'   TIME:'+r.tleft+'   ROUND '+r.round+'/'+r.total;
   else if(r.phase==='collect')h='COLLECTING DRAWINGS...';
   else if(r.phase==='vote')h=(mineV===r.vi?'THIS ONE IS YOURS! WAIT...':'WHO DREW THIS?')+'   '+(r.vi+1)+'/'+r.vn+'   TIME:'+r.tleft;
@@ -267,7 +268,7 @@ function ui(){
   $('#mhud').textContent=h;
   $('#mg').hidden=!(r.phase==='play'&&!mine&&!r.g.includes(myId));
   const elig=r.phase==='vote'&&mineV!==r.vi&&!r.vd.includes(myId);
-  $('#vrow').hidden=!elig;
+  $('#vrow').hidden=!elig;$('#wrow').hidden=!(r.phase==='write'&&sentR!==r.round);
   const vk=elig?r.players.map(p=>p.id).join()+'|'+r.vi:'';
   if(vk!==vkey){vkey=vk;const v=$('#vrow');v.textContent='';
     if(elig){const l=document.createElement('span');l.textContent='WHO DREW IT?';v.appendChild(l);
@@ -319,6 +320,7 @@ function onHostData(c,m){
     if(room.phase==='play'){const d=room.drawer==='H'?art.toDataURL():lastC;if(d)c.send({t:'c',d})}
   }else if(m.t==='g')onGuess(c.peer,String(m.x||'').slice(0,40));
   else if(m.t==='v')onVote(c.peer,String(m.x));
+  else if(m.t==='p')onProp(c.peer,String(m.x||''));
   else if(m.t==='d'&&room.phase==='collect'&&okImg(m.d)){subs[c.peer]=m.d;if(Object.keys(subs).length>=room.players.length)beginVote()}
   else if(m.t==='c'&&c.peer===room.drawer&&room.phase==='play'&&okImg(m.d)){lastC=m.d;bc(m,c);const im=new Image();im.onload=()=>{actx.drawImage(im,0,0);render()};im.src=m.d}
 }
@@ -333,46 +335,98 @@ function onData(m){
 }
 function enter(){title='';bar=false;$('#ttl').value='';$('#bar').checked=false;fillAll(6);undo=[];feed=[];render()}
 const pname=()=>($('#pname').value.trim()||'PLAYER').toUpperCase().slice(0,12);
-function noLib(){if(typeof Peer==='undefined'){msg('?NETWORK LIBRARY NOT LOADED');return true}return false}
-function hostRoom(){
-  if(noLib())return;const me=pname();
-  const code=Array.from({length:5},()=>'ABCDEFGHJKMNPQRSTUVWXYZ'[Math.floor(Math.random()*23)]).join('');
-  const peer=new Peer('pag16-'+code);net={host:true,peer,conns:{},code};
-  peer.on('open',()=>{myId='H';room=blank();room.players=[{id:'H',name:me,score:0}];enter();log('ROOM READY. SHARE CODE '+code);ui()});
-  peer.on('connection',c=>{c.on('data',m=>onHostData(c,m));c.on('close',()=>drop(c.peer));c.on('error',()=>drop(c.peer))});
-  peer.on('error',e=>{if(!net||net.peer!==peer)return;if(e.type==='unavailable-id'){peer.destroy();net=null;hostRoom();return}leave('?NET ERROR: '+e.type)});
+function noLib(){if(typeof mqtt==='undefined'){msg('?NETWORK LIBRARY NOT LOADED');return true}return false}
+const BROKERS=['wss://broker.hivemq.com:8884/mqtt','wss://broker.emqx.io:8084/mqtt'];
+const B0='ABCDEFGHJKM';
+function mq(o){
+  const T='pag16/'+o.code+'/';
+  const will=o.host?{topic:T+'all',payload:JSON.stringify({t:'x',x:'HOST LEFT'}),qos:1}:{topic:T+'in',payload:JSON.stringify({t:'bye',i:o.id}),qos:1};
+  const cl=mqtt.connect(BROKERS[o.bi],{clientId:'pag16_'+o.id+'_'+Math.random().toString(36).slice(2,8),clean:true,reconnectPeriod:0,connectTimeout:9000,keepalive:30,will});
+  const pub=(s,m)=>{if(cl.connected)cl.publish(T+s,JSON.stringify(m),{qos:1})};
+  cl.on('connect',()=>cl.subscribe(o.host?[T+'in']:[T+'all',T+'to/'+o.id],{qos:1},e=>{if(e)o.onerr(e);else o.onready()}));
+  cl.on('message',(t,p)=>{let m;try{m=JSON.parse(new TextDecoder().decode(p))}catch(e){return}o.onmsg(t.slice(T.length),m)});
+  cl.on('error',e=>o.onerr(e));cl.on('close',()=>o.onclose());
+  return{pub,destroy(){try{if(o.host)pub('all',{t:'x',x:'HOST LEFT'});else pub('in',{t:'bye',i:o.id})}catch(e){}setTimeout(()=>{try{cl.end(true)}catch(e){}},300)}};
+}
+function mkConn(id){return{peer:id,open:true,send:m=>{if(net)net.peer.pub('to/'+id,m)},close:()=>{}}}
+function hostIn(m){
+  const id=String(m.i||'');if(!id||id==='H')return;
+  if(m.t==='bye'){drop(id);return}
+  const c=net.conns[id];
+  if(m.t==='h'){if(c)c.send(Object.assign({t:'s'},room));else onHostData(mkConn(id),m);return}
+  if(c)onHostData(c,m);
+}
+function hostRoom(bi){
+  if(noLib())return;bi=bi===1?1:0;const me=pname();
+  const AL='ABCDEFGHJKMNPQRSTUVWXYZ',F=bi?'NPQRSTUVWXYZ':B0;
+  const code=F[Math.floor(Math.random()*F.length)]+Array.from({length:4},()=>AL[Math.floor(Math.random()*AL.length)]).join('');
+  msg('OPENING ROOM...');
+  const fail=()=>{if(!net||net.peer!==L)return;if(net.up){leave('?CONNECTION LOST');return}L.destroy();net=null;if(bi===0)hostRoom(1);else leave('?CANNOT REACH SERVER')};
+  const L=mq({code,host:true,bi,id:'H',
+    onready:()=>{if(!net||net.peer!==L)return;net.up=true;myId='H';room=blank();room.players=[{id:'H',name:me,score:0}];enter();msg('');log('ROOM READY. SHARE CODE '+code);ui()},
+    onmsg:(sub,m)=>{if(sub==='in'&&m&&typeof m==='object'&&net&&net.peer===L)hostIn(m)},
+    onerr:()=>{if(net&&net.peer===L&&!net.up)fail()},
+    onclose:fail});
+  net={host:true,peer:L,conns:{},code,up:false};
 }
 function joinRoom(){
   if(noLib())return;const code=$('#jcode').value.trim().toUpperCase();
   if(code.length!==5){msg('?ENTER THE 5-LETTER CODE');return}
-  const me=pname(),peer=new Peer();net={host:false,peer,code};msg('JOINING...');bootShow();
-  peer.on('open',id=>{
-    myId=id;const c=peer.connect('pag16-'+code,{reliable:true});net.hc=c;
-    c.on('open',()=>{room=blank();enter();c.send({t:'h',n:me});ui();msg('');bootDone()});
-    c.on('data',onData);
-    c.on('close',()=>{if(net&&net.hc===c)leave('HOST LEFT')});
-    c.on('error',()=>{if(net&&net.hc===c)leave('?CONNECTION ERROR')});
-  });
-  peer.on('error',e=>{if(net&&net.peer===peer)leave(e.type==='peer-unavailable'?'?ROOM NOT FOUND':'?NET ERROR: '+e.type)});
+  const me=pname(),bi=B0.includes(code[0])?0:1,id='c'+Math.random().toString(36).slice(2,9);
+  let opened=false,hello=null;msg('JOINING...');bootShow();
+  const L=mq({code,host:false,bi,id,
+    onready:()=>{myId=id;const send=()=>{if(!net||net.peer!==L||opened){clearInterval(hello);return}net.hc.send({t:'h',n:me})};send();hello=setInterval(send,1500)},
+    onmsg:(sub,m)=>{
+      if(!m||typeof m!=='object'||m.o===id||!net||net.peer!==L)return;
+      if(!opened){
+        if(m.t==='x'){leave(String(m.x).slice(0,30));return}
+        if(m.t==='s'&&Array.isArray(m.players)&&m.players.some(p=>p.id===id)){opened=true;clearInterval(hello);clearTimeout(tmo);room=blank();enter();ui();msg('');bootDone()}else return;
+      }
+      onData(m);
+    },
+    onerr:()=>{if(net&&net.peer===L)leave(opened?'?CONNECTION LOST':'?COULD NOT REACH SERVER')},
+    onclose:()=>{if(net&&net.peer===L)leave(opened?'?CONNECTION LOST':'?COULD NOT REACH SERVER')}});
+  net={host:false,peer:L,code,hc:{peer:'H',open:true,send:m=>L.pub('in',Object.assign({i:id},m))}};
+  const tmo=setTimeout(()=>{if(!opened&&net&&net.peer===L)leave('?ROOM NOT FOUND - CHECK THE CODE')},10000);
 }
-function leave(t){bootHide();
+function leave(t){if(t&&!$('#boot').hidden)bootFail(t);else bootHide();
   clearInterval(mt);if(net){try{net.peer.destroy()}catch(e){}}
-  net=null;pk='';vkey='';mineV=-1;myId='';word='';guessed=new Set();room=blank();
+  net=null;pk='';vkey='';mineV=-1;sentR=-1;myId='';word='';guessed=new Set();room=blank();
   $('.screen').classList.remove('mp','guessing');$('#lobby').hidden=false;$('#room').hidden=true;msg(t||'');
 }
 $('#host').onclick=hostRoom;$('#join').onclick=joinRoom;$('#leave').onclick=()=>leave('');
 $('#start').onclick=()=>{room.players.forEach(p=>p.score=0);room.round=0;room.total=room.rounds;nextRound()};
 function showImg(d){const im=new Image();im.onload=()=>{actx.drawImage(im,0,0);render()};im.src=d}
 function startMulti(){
-  room.round++;room.drawer='';word=WORDS[Math.floor(Math.random()*WORDS.length)];
-  subs={};vv={};order=[];mineV=-1;room.vi=0;room.vn=0;room.vd=[];room.mask=word;
-  room.phase='draw';room.tleft=room.time;fillAll(6);undo=[];render();
-  clearInterval(mt);mt=setInterval(mtick,1000);push();
+  room.round++;room.drawer='';props={};room.wn=0;
+  subs={};vv={};order=[];mineV=-1;room.vi=0;room.vn=0;room.vd=[];room.mask='';
+  fillAll(6);undo=[];render();
+  clearInterval(mt);mt=setInterval(mtick,1000);
+  if(room.src==='custom'){room.phase='write';room.tleft=25;push();say('WRITE A PROMPT FOR EVERYONE TO DRAW!')}
+  else beginDraw(WORDS[Math.floor(Math.random()*WORDS.length)]);
+}
+function beginDraw(w){word=w;room.mask=w;room.phase='draw';room.tleft=room.time;push()}
+function pickPrompt(){
+  if(room.phase!=='write')return;
+  const ids=Object.keys(props).filter(i=>props[i]&&room.players.some(p=>p.id===i));
+  if(!ids.length){say('NO PROMPTS - USING A RANDOM ONE');beginDraw(WORDS[Math.floor(Math.random()*WORDS.length)]);return}
+  const a=ids[Math.floor(Math.random()*ids.length)];say('PROMPT BY '+nm(a));beginDraw(props[a]);
+}
+function onProp(id,t){
+  if(room.phase!=='write'||!room.players.some(p=>p.id===id))return;
+  props[id]=t.replace(/[^A-Za-z0-9 '!?.,-]/g,'').trim().toUpperCase().slice(0,30);
+  room.wn=Object.keys(props).filter(i=>props[i]).length;
+  if(room.wn>=room.players.length)pickPrompt();else push();
+}
+function sendProp(){
+  const t=$('#win').value.trim();if(!t||!net||room.phase!=='write')return;
+  $('#win').value='';sentR=room.round;
+  if(net.host)onProp('H',t);else net.hc.send({t:'p',x:t});ui();
 }
 function mtick(){
-  if(room.phase!=='draw'&&room.phase!=='vote')return;
+  if(room.phase!=='write'&&room.phase!=='draw'&&room.phase!=='vote')return;
   room.tleft--;
-  if(room.tleft<=0){if(room.phase==='draw')collect();else revealVote()}else push();
+  if(room.tleft<=0){if(room.phase==='write')pickPrompt();else if(room.phase==='draw')collect();else revealVote()}else push();
 }
 function collect(){if(room.phase!=='draw')return;room.phase='collect';room.tleft=0;subs={H:art.toDataURL()};push();setTimeout(beginVote,3500)}
 function beginVote(){
@@ -405,9 +459,10 @@ function onVote(id,pid){
 function castVote(pid){if(!net)return;if(net.host)onVote('H',pid);else if(net.hc&&net.hc.open)net.hc.send({t:'v',x:pid})}
 const BL=[[0,'BOOTING UP MODEM...'],[600,'ATZ'],[1000,'OK'],[1500,'ATDT 555-0164'],[2200,'DIALING...'],[3000,'CARRIER DETECTED'],[3500,'CONNECT 300 BAUD'],[4000,'HANDSHAKING WITH HOST...'],[4500,'LOADING DRIVER FROM DRIVE 8'],[5000,'CHECKING PARITY... OK'],[5500,'SYNCING RAM DISK']];
 function bootClear(){bt.forEach(clearTimeout);bt=[];clearInterval(bi)}
+function bootFail(t){bootClear();$('#bt').textContent+='\nNO CARRIER\n'+t+'\n';$('#bbar').style.width='100%';$('#bbar').style.background='#C07060';bt.push(setTimeout(bootHide,3500))}
 function bootHide(){bootClear();$('#boot').hidden=true}
 function bootShow(){
-  bootClear();const t=$('#bt');t.textContent='';$('#bbar').style.width='0%';$('#boot').hidden=false;bst=Date.now();
+  bootClear();const t=$('#bt');t.textContent='';$('#bbar').style.width='0%';$('#bbar').style.background='';$('#boot').hidden=false;bst=Date.now();
   BL.forEach(l=>bt.push(setTimeout(()=>{t.textContent+=l[1]+'\n'},l[0])));
   bi=setInterval(()=>{$('#bbar').style.width=Math.min(95,(Date.now()-bst)/65)+'%'},100);
 }
@@ -420,7 +475,8 @@ function kick(id){const c=net&&net.conns[id];if(!c)return;try{c.send({t:'x',x:'K
 function cfgSet(k,v){if(!net||!net.host)return;if(k==='max')v=Math.max(2,Math.min(8,Math.max(v,room.players.length)));if(k==='rounds')v=Math.max(1,Math.min(30,v));if(k==='pts')v=Math.max(1,Math.min(20,v));room[k]=v;push()}
 $('#smax').oninput=e=>cfgSet('max',+e.target.value);$('#stime').onchange=e=>cfgSet('time',+e.target.value);
 $('#rm').onclick=()=>cfgSet('rounds',room.rounds-1);$('#rp').onclick=()=>cfgSet('rounds',room.rounds+1);
-$('#smode').onchange=e=>cfgSet('mode',e.target.value);$('#pm').onclick=()=>cfgSet('pts',room.pts-1);$('#pp').onclick=()=>cfgSet('pts',room.pts+1);
+$('#smode').onchange=e=>cfgSet('mode',e.target.value);$('#spro').onchange=e=>cfgSet('src',e.target.value);
+$('#wbtn').onclick=sendProp;$('#win').addEventListener('keydown',e=>{if(e.key==='Enter')sendProp()});$('#pm').onclick=()=>cfgSet('pts',room.pts-1);$('#pp').onclick=()=>cfgSet('pts',room.pts+1);
 function sendG(){const t=$('#mgin').value.trim();$('#mgin').value='';if(!t||!net)return;if(net.host)onGuess('H',t);else if(net.hc&&net.hc.open)net.hc.send({t:'g',x:t})}
 $('#mgbtn').onclick=sendG;$('#mgin').addEventListener('keydown',e=>{if(e.key==='Enter')sendG()});
 
